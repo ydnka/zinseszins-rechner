@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zinseszins-Rechner</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: system-ui, sans-serif;
+      background: #0f172a; color: #e2e8f0;
+      display: flex; justify-content: center; padding: 32px 16px;
+    }
+    main { width: 100%; max-width: 760px; }
+    h1 { margin: 0 0 4px; font-size: 1.8rem; }
+    .sub { color: #94a3b8; margin: 0 0 24px; }
+    .card { background: #1e293b; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+    .inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
+    label { font-size: .85rem; color: #94a3b8; display: block; margin-bottom: 6px; }
+    input {
+      width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #334155;
+      background: #0f172a; color: #e2e8f0; font-size: 1rem;
+    }
+    .results { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; text-align: center; }
+    .results div span { display: block; font-size: .8rem; color: #94a3b8; }
+    .results div strong { font-size: 1.25rem; }
+    .end { color: #4ade80; }
+    .chart { display: flex; align-items: flex-end; gap: 3px; height: 200px; }
+    .bar { flex: 1; display: flex; flex-direction: column-reverse; min-width: 4px; }
+    .bar .dep { background: #3b82f6; }
+    .bar .int { background: #4ade80; }
+    .legend { font-size: .8rem; color: #94a3b8; margin-top: 8px; }
+    .legend b { display: inline-block; width: 10px; height: 10px; margin: 0 4px 0 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    th, td { padding: 6px 8px; text-align: right; border-bottom: 1px solid #334155; }
+    th:first-child, td:first-child { text-align: left; }
+    footer { color: #64748b; font-size: .8rem; text-align: center; margin-top: 16px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>📈 Zinseszins-Rechner</h1>
+  <p class="sub">Wie wächst mein Geld mit Sparrate und Zinseszins?</p>
+
+  <section class="card inputs">
+    <div><label for="start">Startkapital (€)</label><input id="start" type="number" value="1000" min="0"></div>
+    <div><label for="rate">Monatliche Sparrate (€)</label><input id="rate" type="number" value="100" min="0"></div>
+    <div><label for="zins">Zinssatz p.a. (%)</label><input id="zins" type="number" value="5" min="0" step="0.1"></div>
+    <div><label for="jahre">Laufzeit (Jahre)</label><input id="jahre" type="number" value="20" min="1" max="60"></div>
+  </section>
+
+  <section class="card results">
+    <div><span>Einzahlungen</span><strong id="r-dep">–</strong></div>
+    <div><span>Zinsen</span><strong id="r-int">–</strong></div>
+    <div><span>Endkapital</span><strong id="r-end" class="end">–</strong></div>
+  </section>
+
+  <section class="card">
+    <div class="chart" id="chart"></div>
+    <div class="legend"><b style="background:#3b82f6"></b>Einzahlungen <b style="background:#4ade80"></b>Zinsen</div>
+  </section>
+
+  <section class="card">
+    <table>
+      <thead><tr><th>Jahr</th><th>Einzahlungen</th><th>Zinsen</th><th>Kapital</th></tr></thead>
+      <tbody id="table"></tbody>
+    </table>
+  </section>
+
+  <footer>Annahme: monatliche Verzinsung, Einzahlung am Monatsende. Keine Steuern, keine Inflation. · Made by <a href="https://github.com/ydnka" style="color:#94a3b8">ydnka</a></footer>
+</main>
+
+<script>
+  const eur = n => n.toLocaleString("de-DE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+  const val = id => Math.max(0, parseFloat(document.getElementById(id).value) || 0);
+
+  function berechnen() {
+    const start = val("start"), rate = val("rate"), zinsMonat = val("zins") / 100 / 12;
+    const jahre = Math.min(60, Math.max(1, Math.round(val("jahre"))));
+
+    let kapital = start, einzahlungen = start;
+    const zeilen = [];
+
+    for (let j = 1; j <= jahre; j++) {
+      for (let m = 0; m < 12; m++) {
+        kapital = kapital * (1 + zinsMonat) + rate; // Zinseszins + Sparrate
+        einzahlungen += rate;
+      }
+      zeilen.push({ jahr: j, dep: einzahlungen, int: kapital - einzahlungen, kap: kapital });
+    }
+
+    // Ergebnisse
+    document.getElementById("r-dep").textContent = eur(einzahlungen);
+    document.getElementById("r-int").textContent = eur(kapital - einzahlungen);
+    document.getElementById("r-end").textContent = eur(kapital);
+
+    // Diagramm
+    const chart = document.getElementById("chart");
+    chart.innerHTML = "";
+    const max = kapital || 1;
+    zeilen.forEach(z => {
+      const bar = document.createElement("div");
+      bar.className = "bar";
+      bar.title = `Jahr ${z.jahr}: ${eur(z.kap)}`;
+      bar.style.height = (z.kap / max * 100) + "%";
+      const dep = document.createElement("div");
+      dep.className = "dep"; dep.style.height = (z.dep / z.kap * 100) + "%";
+      const int = document.createElement("div");
+      int.className = "int"; int.style.height = (z.int / z.kap * 100) + "%";
+      bar.append(dep, int);
+      chart.append(bar);
+    });
+
+    // Tabelle
+    const tbody = document.getElementById("table");
+    tbody.innerHTML = "";
+    zeilen.forEach(z => {
+      const tr = document.createElement("tr");
+      [z.jahr, eur(z.dep), eur(z.int), eur(z.kap)].forEach(t => {
+        const td = document.createElement("td");
+        td.textContent = t;
+        tr.append(td);
+      });
+      tbody.append(tr);
+    });
+  }
+
+  document.querySelectorAll("input").forEach(i => i.addEventListener("input", berechnen));
+  berechnen();
+</script>
+</body>
+</html>
